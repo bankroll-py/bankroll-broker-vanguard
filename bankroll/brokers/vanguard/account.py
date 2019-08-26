@@ -6,14 +6,33 @@ from decimal import Decimal
 from enum import unique
 from functools import reduce
 from pathlib import Path
-from typing import (Dict, Iterable, List, Mapping, NamedTuple, Optional,
-                    Sequence, Set, Tuple)
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
-from bankroll.broker import (AccountData, configuration, csvsectionslicer,
-                             parsetools)
-from bankroll.model import (AccountBalance, Activity, Bond, Cash, CashPayment,
-                            Currency, Instrument, Option, Position, Stock, Trade,
-                            TradeFlags)
+from bankroll.broker import AccountData, configuration, csvsectionslicer, parsetools
+from bankroll.model import (
+    AccountBalance,
+    Activity,
+    Bond,
+    Cash,
+    CashPayment,
+    Currency,
+    Instrument,
+    Option,
+    Position,
+    Stock,
+    Trade,
+    TradeFlags,
+)
 
 
 @unique
@@ -69,23 +88,27 @@ def _activityAffectsSymbol(activity: Activity, symbol: str) -> bool:
     if isinstance(activity, CashPayment):
         return activity.instrument is not None and activity.instrument.symbol == symbol
     elif isinstance(activity, Trade):
-        return (isinstance(activity.instrument, Option) and activity.instrument.underlying == symbol) or activity.instrument.symbol == symbol
+        return (
+            isinstance(activity.instrument, Option)
+            and activity.instrument.underlying == symbol
+        ) or activity.instrument.symbol == symbol
     else:
         return False
 
 
-def _realizedBasisForSymbol(symbol: str,
-                           activity: Iterable[Activity]) -> Optional[Cash]:
+def _realizedBasisForSymbol(
+    symbol: str, activity: Iterable[Activity]
+) -> Optional[Cash]:
     def f(basis: Optional[Cash], activity: Activity) -> Optional[Cash]:
         if isinstance(activity, CashPayment):
             return basis - activity.proceeds if basis else -activity.proceeds
         elif isinstance(activity, Trade):
             return basis - activity.proceeds if basis else -activity.proceeds
         else:
-            raise ValueError(f'Unexpected type of activity: {activity}')
+            raise ValueError(f"Unexpected type of activity: {activity}")
 
-    return reduce(f, (t for t in activity if _activityAffectsSymbol(t, symbol)),
-                  None)
+    return reduce(f, (t for t in activity if _activityAffectsSymbol(t, symbol)), None)
+
 
 def _parseVanguardPosition(p: _VanguardPosition, activity: List[Activity]) -> Position:
     instrument: Instrument
@@ -233,7 +256,9 @@ def _parseTransactions(path: Path, lenient: bool = False) -> List[Activity]:
             rowFilter=lambda r: r[1:-1],
         )
 
-        sections = csvsectionslicer.parseSectionsForCSV(csvfile, [transactionsCriterion])
+        sections = csvsectionslicer.parseSectionsForCSV(
+            csvfile, [transactionsCriterion]
+        )
 
         if len(sections) == 0:
             return []

@@ -5,9 +5,19 @@ from itertools import groupby
 from pathlib import Path
 
 import bankroll.brokers.vanguard as vanguard
-from bankroll.model import (AccountBalance, Activity, Bond, Cash, CashPayment,
-                            Currency, Instrument, Position, Stock, Trade,
-                            TradeFlags)
+from bankroll.model import (
+    AccountBalance,
+    Activity,
+    Bond,
+    Cash,
+    CashPayment,
+    Currency,
+    Instrument,
+    Position,
+    Stock,
+    Trade,
+    TradeFlags,
+)
 from tests import helpers
 
 
