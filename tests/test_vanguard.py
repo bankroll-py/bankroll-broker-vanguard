@@ -4,7 +4,7 @@ from decimal import Decimal
 from itertools import groupby
 from pathlib import Path
 
-from bankroll.brokers import vanguard
+import bankroll.brokers.vanguard as vanguard
 from bankroll.model import (AccountBalance, Activity, Bond, Cash, CashPayment,
                             Currency, Instrument, Position, Stock, Trade,
                             TradeFlags)
