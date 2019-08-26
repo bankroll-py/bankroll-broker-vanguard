@@ -1,44 +1,19 @@
-from bankroll.analysis import realizedBasisForSymbol
-from bankroll.model import (
-    AccountBalance,
-    AccountData,
-    Activity,
-    Bond,
-    Cash,
-    Currency,
-    Instrument,
-    Position,
-    Stock,
-    CashPayment,
-    Trade,
-    TradeFlags,
-)
-from bankroll.csvsectionslicer import (
-    parseSectionsForCSV,
-    CSVSectionCriterion,
-    CSVSectionResult,
-)
-from bankroll.parsetools import lenientParse
+import csv
+import re
 from collections import namedtuple
 from datetime import datetime
 from decimal import Decimal
 from enum import unique
+from functools import reduce
 from pathlib import Path
-from typing import (
-    Dict,
-    Iterable,
-    List,
-    Mapping,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import (Dict, Iterable, List, Mapping, NamedTuple, Optional,
+                    Sequence, Set, Tuple)
 
-import bankroll.configuration as configuration
-import csv
-import re
+from bankroll.broker import (AccountData, configuration, csvsectionslicer,
+                             parsetools)
+from bankroll.model import (AccountBalance, Activity, Bond, Cash, CashPayment,
+                            Currency, Instrument, Option, Position, Stock, Trade,
+                            TradeFlags)
 
 
 @unique
@@ -90,6 +65,28 @@ def _parseVanguardPositionAndActivity(vpb: _VanguardPositionAndActivity) -> Posi
     return _parseVanguardPosition(vpb.position, vpb.activity)
 
 
+def _activityAffectsSymbol(activity: Activity, symbol: str) -> bool:
+    if isinstance(activity, CashPayment):
+        return activity.instrument is not None and activity.instrument.symbol == symbol
+    elif isinstance(activity, Trade):
+        return (isinstance(activity.instrument, Option) and activity.instrument.underlying == symbol) or activity.instrument.symbol == symbol
+    else:
+        return False
+
+
+def _realizedBasisForSymbol(symbol: str,
+                           activity: Iterable[Activity]) -> Optional[Cash]:
+    def f(basis: Optional[Cash], activity: Activity) -> Optional[Cash]:
+        if isinstance(activity, CashPayment):
+            return basis - activity.proceeds if basis else -activity.proceeds
+        elif isinstance(activity, Trade):
+            return basis - activity.proceeds if basis else -activity.proceeds
+        else:
+            raise ValueError(f'Unexpected type of activity: {activity}')
+
+    return reduce(f, (t for t in activity if _activityAffectsSymbol(t, symbol)),
+                  None)
+
 def _parseVanguardPosition(p: _VanguardPosition, activity: List[Activity]) -> Position:
     instrument: Instrument
     if len(p.symbol) > 0:
@@ -99,7 +96,7 @@ def _parseVanguardPosition(p: _VanguardPosition, activity: List[Activity]) -> Po
 
     qty = Decimal(p.shares)
 
-    realizedBasis = realizedBasisForSymbol(instrument.symbol, activity)
+    realizedBasis = _realizedBasisForSymbol(instrument.symbol, activity)
     assert realizedBasis, "Invalid realizedBasis: %s for %s" % (
         realizedBasis,
         instrument,
@@ -112,12 +109,12 @@ def _parsePositions(
     path: Path, activity: List[Activity], lenient: bool = False
 ) -> List[Position]:
     with open(path, newline="") as csvfile:
-        criterion = CSVSectionCriterion(
+        criterion = csvsectionslicer.CSVSectionCriterion(
             startSectionRowMatch=["Account Number"],
             endSectionRowMatch=[],
             rowFilter=lambda r: r[1:6],
         )
-        sections = parseSectionsForCSV(csvfile, [criterion])
+        sections = csvsectionslicer.parseSectionsForCSV(csvfile, [criterion])
 
         if len(sections) == 0:
             return []
@@ -128,7 +125,7 @@ def _parsePositions(
         )
 
         return list(
-            lenientParse(
+            parsetools.lenientParse(
                 vanPosAndBases,
                 transform=_parseVanguardPositionAndActivity,
                 lenient=lenient,
@@ -230,13 +227,13 @@ def _parseVanguardTransaction(t: _VanguardTransaction) -> Optional[Activity]:
 # Transactions will be ordered from newest to oldest
 def _parseTransactions(path: Path, lenient: bool = False) -> List[Activity]:
     with open(path, newline="") as csvfile:
-        transactionsCriterion = CSVSectionCriterion(
+        transactionsCriterion = csvsectionslicer.CSVSectionCriterion(
             startSectionRowMatch=["Account Number", "Trade Date"],
             endSectionRowMatch=[],
             rowFilter=lambda r: r[1:-1],
         )
 
-        sections = parseSectionsForCSV(csvfile, [transactionsCriterion])
+        sections = csvsectionslicer.parseSectionsForCSV(csvfile, [transactionsCriterion])
 
         if len(sections) == 0:
             return []
@@ -244,7 +241,7 @@ def _parseTransactions(path: Path, lenient: bool = False) -> List[Activity]:
         return list(
             filter(
                 None,
-                lenientParse(
+                parsetools.lenientParse(
                     (_VanguardTransaction._make(r) for r in sections[0].rows),
                     transform=_parseVanguardTransaction,
                     lenient=lenient,
