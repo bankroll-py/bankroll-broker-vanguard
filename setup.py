@@ -8,7 +8,7 @@ setup(
     version="0.4.0",
     author="Justin Spahr-Summers",
     author_email="justin@jspahrsummers.com",
-    description="Vanguard support for bankroll",
+    description="Vanguard support for bankroll (experimental)",
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="MIT",
@@ -16,7 +16,7 @@ setup(
     packages=["bankroll.brokers.vanguard"],
     package_data={"bankroll.brokers.vanguard": ["py.typed"]},
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
